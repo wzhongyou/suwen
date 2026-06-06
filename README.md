@@ -130,7 +130,7 @@ GET /api/v1/search/stream?q=并发
 ```
 suwen/
 ├── cmd/suwen/main.go           # 入口
-├── pkg/                         # Go 公共包
+├── internal/                    # 应用内部包
 │   ├── config/                 # 配置定义与加载
 │   ├── query/                  # 查询理解（意图分类、改写）
 │   ├── retrieval/              # 混合召回编排、RRF 融合

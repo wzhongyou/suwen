@@ -11,8 +11,8 @@ import (
 	"github.com/wzhongyou/llmgate/core"
 	"github.com/wzhongyou/llmgate/sdk"
 
-	"github.com/wzhongyou/suwen/pkg/config"
-	"github.com/wzhongyou/suwen/pkg/ranking"
+	"github.com/wzhongyou/suwen/internal/config"
+	"github.com/wzhongyou/suwen/internal/ranking"
 )
 
 const systemPrompt = `你是素问（Suwen），一个开源的AI搜索引擎。你的任务是基于提供的【参考资料】回答用户的问题。

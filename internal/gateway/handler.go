@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/wzhongyou/suwen/pkg/generation"
-	"github.com/wzhongyou/suwen/pkg/query"
-	"github.com/wzhongyou/suwen/pkg/ranking"
-	"github.com/wzhongyou/suwen/pkg/retrieval"
+	"github.com/wzhongyou/suwen/internal/generation"
+	"github.com/wzhongyou/suwen/internal/query"
+	"github.com/wzhongyou/suwen/internal/ranking"
+	"github.com/wzhongyou/suwen/internal/retrieval"
 )
 
 // SearchRequest is the JSON body for a search request.

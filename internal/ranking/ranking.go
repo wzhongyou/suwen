@@ -4,8 +4,8 @@
 package ranking
 
 import (
-	"github.com/wzhongyou/suwen/pkg/config"
-	"github.com/wzhongyou/suwen/pkg/retrieval"
+	"github.com/wzhongyou/suwen/internal/config"
+	"github.com/wzhongyou/suwen/internal/retrieval"
 )
 
 // RankedResult wraps a SearchResult with its rerank score and position.

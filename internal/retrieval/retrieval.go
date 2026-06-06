@@ -14,8 +14,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/wzhongyou/suwen/pkg/config"
-	"github.com/wzhongyou/suwen/pkg/query"
+	"github.com/wzhongyou/suwen/internal/config"
+	"github.com/wzhongyou/suwen/internal/query"
 )
 
 // SearchResult represents a single search result from any source.
