@@ -18,7 +18,7 @@ export default function HomePage() {
   const [answer, setAnswer] = useState('');
   const [sources, setSources] = useState<Citation[]>([]);
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [timeMs, setTimeMs] = useState(0);
+  const [, setTimeMs] = useState(0);
   const [loading, setLoading] = useState(false);
   const [useStream, setUseStream] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
@@ -72,9 +72,10 @@ export default function HomePage() {
               return;
           }
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
-        console.error('Stream error:', err);
+      } catch (err: unknown) {
+        const e = err as Error;
+        if (e.name === 'AbortError') return;
+        console.error('Stream error:', e);
         setStatusMsg('流式失败，尝试普通搜索...');
         setUseStream(false);
       }
@@ -93,9 +94,10 @@ export default function HomePage() {
       setTimeMs(resp.time_ms || Date.now() - start);
       setStage('done');
       setStatusMsg(`找到 ${resp.results?.length || 0} 条结果 · ${resp.time_ms || Date.now() - start}ms`);
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
-      setAnswer(`搜索失败: ${err.message}`);
+    } catch (err: unknown) {
+      const e = err as Error;
+      if (e.name === 'AbortError') return;
+      setAnswer(`搜索失败: ${e.message}`);
       setStage('done');
       setStatusMsg('搜索失败');
     } finally {

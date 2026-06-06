@@ -114,6 +114,7 @@ export async function* searchStream(query: string): AsyncGenerator<SSEEvent> {
 
 export interface SSEEvent {
   event: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
 
