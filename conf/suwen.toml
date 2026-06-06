@@ -1,0 +1,24 @@
+# suwen configuration
+
+[server]
+addr = ":8080"
+
+[vortex]
+addr = "http://localhost:8080"
+
+[proximia]
+addr = "http://localhost:8080"
+
+[llm]
+provider = "deepseek"
+model = "deepseek-v4-flash"
+timeout = "30s"
+config_path = "conf/llmgate.toml"
+
+[retrieval]
+timeout = "2s"
+rrf_k = 60
+
+[ranking]
+cross_encoder_enabled = false
+cross_encoder_model = "bge-reranker-v2-m3"

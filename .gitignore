@@ -27,6 +27,32 @@ go.work.sum
 # env file
 .env
 
+# Go build cache
+/vendor/
+
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config / secrets
+*.env
+.env.*
+config.local.*
+conf/llmgate.toml
+supervisor
+
+# Web frontend
+web/node_modules/
+web/dist/
+
+# Compiled binary
+suwen
+
+# Data
+data/

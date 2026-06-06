@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>素问 Suwen — AI 搜索</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #fafafa;
+  --card-bg: #fff;
+  --text: #1a1a2e;
+  --text-secondary: #666;
+  --accent: #4f46e5;
+  --accent-light: #eef2ff;
+  --border: #e5e7eb;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0f14;
+    --card-bg: #1a1a24;
+    --text: #e5e5e5;
+    --text-secondary: #999;
+    --accent: #818cf8;
+    --accent-light: #1e1b4b;
+    --border: #2a2a36;
+    --shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ---- Landing ---- */
+.landing {
+  margin-top: 18vh;
+  text-align: center;
+  width: 100%;
+  max-width: 660px;
+  padding: 0 24px;
+}
+.logo {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+}
+.search-box {
+  position: relative;
+  width: 100%;
+}
+.search-box input {
+  width: 100%;
+  padding: 16px 56px 16px 20px;
+  font-size: 17px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  box-shadow: var(--shadow);
+}
+.search-box input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+.search-box button {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity .2s;
+}
+.search-box button:disabled { opacity: .6; cursor: default; }
+.search-box button:hover:not(:disabled) { opacity: .85; }
+
+/* ---- Results ---- */
+.results-page {
+  width: 100%;
+  max-width: 760px;
+  padding: 24px;
+  display: none;
+}
+.results-page.active { display: block; }
+.landing.compact { margin-top: 40px; }
+.landing.compact .logo { font-size: 24px; }
+.landing.compact .subtitle { display: none; }
+.landing.compact .search-box input { padding: 12px 48px 12px 16px; font-size: 15px; }
+
+/* Answer card */
+.answer-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+  line-height: 1.7;
+  font-size: 15px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.answer-card.loading {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.answer-card .cite {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  vertical-align: super;
+  margin: 0 1px;
+}
+.answer-card .cite:hover { text-decoration: underline; }
+
+/* Sources */
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.source-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--accent-light);
+  color: var(--accent);
+  border-radius: 6px;
+  font-size: 13px;
+  text-decoration: none;
+  transition: opacity .15s;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-tag:hover { opacity: .8; }
+.source-tag .idx { font-weight: 700; }
+
+/* Result items */
+.result-list { display: flex; flex-direction: column; gap: 12px; }
+.result-item {
+  padding: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow .15s;
+}
+.result-item:hover { box-shadow: var(--shadow); }
+.result-item .title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.result-item .url {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-item .snippet {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.result-rank {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-right: 6px;
+}
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+.spinner {
+  display: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+.spinner.active { display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="landing" id="landing">
+  <div class="logo">素问</div>
+  <div class="subtitle">AI 驱动的开源搜索引擎 · 问必有据</div>
+  <div class="search-box">
+    <input type="text" id="q" placeholder="输入你的问题..." autofocus autocomplete="off"
+      onkeydown="if(event.key==='Enter')search()">
+    <button onclick="search()" id="btn">→</button>
+  </div>
+</div>
+
+<div class="results-page" id="resultsPage">
+  <div class="status-bar">
+    <span class="spinner" id="spinner"></span>
+    <span id="statusText"></span>
+  </div>
+  <div class="answer-card" id="answerCard" style="display:none"></div>
+  <div class="sources" id="sources"></div>
+  <div class="result-list" id="resultList"></div>
+</div>
+
+<script>
+let currentQuery = '';
+
+async function search() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+
+  currentQuery = q;
+
+  // Switch to results view
+  const landing = document.getElementById('landing');
+  const resultsPage = document.getElementById('resultsPage');
+  landing.classList.add('compact');
+  resultsPage.classList.add('active');
+
+  const answerCard = document.getElementById('answerCard');
+  const sources = document.getElementById('sources');
+  const resultList = document.getElementById('resultList');
+  const spinner = document.getElementById('spinner');
+  const statusText = document.getElementById('statusText');
+
+  answerCard.style.display = 'none';
+  sources.innerHTML = '';
+  resultList.innerHTML = '';
+  spinner.classList.add('active');
+  statusText.textContent = '正在搜索...';
+
+  try {
+    const resp = await fetch('/api/v1/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q })
+    });
+
+    const data = await resp.json();
+
+    if (data.error) {
+      answerCard.textContent = '错误: ' + data.error;
+      answerCard.classList.add('loading');
+      answerCard.style.display = 'block';
+      statusText.textContent = '';
+    } else {
+      // Answer
+      if (data.answer) {
+        // Replace [N] with clickable citations
+        const html = data.answer
+          .replace(/\[(\d+)\]/g, '<a class="cite" href="#source-$1">[$1]</a>');
+        answerCard.innerHTML = html;
+        answerCard.classList.remove('loading');
+        answerCard.style.display = 'block';
+      }
+
+      // Sources
+      if (data.sources && data.sources.length > 0) {
+        sources.innerHTML = data.sources.map(s =>
+          `<a class="source-tag" id="source-${s.index}" href="${s.url}" target="_blank" rel="noopener">
+            <span class="idx">[${s.index}]</span> ${s.title}
+          </a>`
+        ).join('');
+      }
+
+      // Results
+      if (data.results && data.results.length > 0) {
+        resultList.innerHTML = data.results.map(r =>
+          `<a class="result-item" href="${r.url}" target="_blank" rel="noopener">
+            <div class="title">${r.title}</div>
+            <div class="url">${r.url}</div>
+            <div class="snippet">${r.snippet || r.description || ''}</div>
+          </a>`
+        ).join('');
+      }
+
+      statusText.textContent = `找到 ${data.results?.length || 0} 条结果 · ${data.time_ms}ms`;
+    }
+  } catch (e) {
+    answerCard.textContent = '请求失败: ' + e.message;
+    answerCard.classList.add('loading');
+    answerCard.style.display = 'block';
+    statusText.textContent = '';
+  } finally {
+    spinner.classList.remove('active');
+  }
+}
+</script>
+</body>
+</html>
