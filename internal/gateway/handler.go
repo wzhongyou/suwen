@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/wzhongyou/suwen/internal/cache"
 	"github.com/wzhongyou/suwen/internal/generation"
+	"github.com/wzhongyou/suwen/internal/middleware"
 	"github.com/wzhongyou/suwen/internal/query"
 	"github.com/wzhongyou/suwen/internal/ranking"
 	"github.com/wzhongyou/suwen/internal/retrieval"
@@ -23,10 +26,11 @@ type SearchRequest struct {
 
 // SearchResponse is the JSON body for a search response.
 type SearchResponse struct {
-	Answer    string               `json:"answer"`
-	Sources   []generation.Citation `json:"sources"`
-	Results   []*ranking.RankedResult  `json:"results"`
-	TimeMS    int64                `json:"time_ms"`
+	Answer  string                 `json:"answer"`
+	Sources []generation.Citation  `json:"sources"`
+	Results []*ranking.RankedResult `json:"results"`
+	TimeMS  int64                  `json:"time_ms"`
+	Cached  bool                   `json:"cached,omitempty"`
 }
 
 // SSEEvent represents a Server-Sent Event.
@@ -41,6 +45,8 @@ type Handler struct {
 	searcher  retrieval.Searcher
 	ranker    ranking.Ranker
 	generator *generation.Generator
+	cache     *cache.Cache
+	metrics   *middleware.Metrics
 }
 
 // NewHandler creates a Handler with the given dependencies.
@@ -49,12 +55,16 @@ func NewHandler(
 	searcher retrieval.Searcher,
 	ranker ranking.Ranker,
 	generator *generation.Generator,
+	queryCache *cache.Cache,
+	metrics *middleware.Metrics,
 ) *Handler {
 	return &Handler{
 		parser:    parser,
 		searcher:  searcher,
 		ranker:    ranker,
 		generator: generator,
+		cache:     queryCache,
+		metrics:   metrics,
 	}
 }
 
@@ -85,13 +95,7 @@ func (h *Handler) HandleSearchDebug(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ranked := h.ranker.Rerank(req.Query, searchResults)
-	if len(ranked) > 10 {
-		ranked = ranked[:10]
-	}
-	for i := range ranked {
-		ranked[i].Rank = i + 1
-	}
+	ranked := h.ranker.Rerank(ctx, req.Query, searchResults)
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"results": ranked,
@@ -116,6 +120,20 @@ func (h *Handler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	// Check cache first (Phase 3).
+	cacheKey := normalizeQuery(req.Query)
+	if h.cache != nil {
+		if cached, ok := h.cache.Get(cacheKey); ok {
+			if resp, ok := cached.(*SearchResponse); ok {
+				resp.Cached = true
+				resp.TimeMS = time.Since(start).Milliseconds()
+				writeJSON(w, http.StatusOK, resp)
+				log.Printf("[search] cache hit: %q (%dms)", req.Query, resp.TimeMS)
+				return
+			}
+		}
+	}
+
 	// 1. Query understanding
 	pq, err := h.parser.Parse(ctx, req.Query)
 	if err != nil {
@@ -132,7 +150,7 @@ func (h *Handler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Ranking
-	ranked := h.ranker.Rerank(req.Query, searchResults)
+	ranked := h.ranker.Rerank(ctx, req.Query, searchResults)
 
 	// 4. Generation
 	answer, sources, err := h.generator.Generate(ctx, req.Query, ranked)
@@ -140,6 +158,12 @@ func (h *Handler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[search] generation error: %v", err)
 		writeError(w, http.StatusInternalServerError, "generation failed: "+err.Error())
 		return
+	}
+
+	// Track LLM call cost (approximate).
+	if h.metrics != nil {
+		// Rough cost estimate: input + output tokens for answer generation.
+		h.metrics.RecordLLMCall(estimateLLMCost(answer))
 	}
 
 	// 5. Response
@@ -151,11 +175,16 @@ func (h *Handler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 		topResults[i].Rank = i + 1
 	}
 
-	resp := SearchResponse{
+	resp := &SearchResponse{
 		Answer:  answer,
 		Sources: sources,
 		Results: topResults,
 		TimeMS:  time.Since(start).Milliseconds(),
+	}
+
+	// Store in cache (Phase 3).
+	if h.cache != nil {
+		h.cache.Set(cacheKey, resp)
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -181,7 +210,7 @@ func (h *Handler) HandleSearchStream(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	// Phase 1: parse and retrieve synchronously, then stream generation.
+	// Parse and retrieve synchronously, then stream generation.
 	pq, err := h.parser.Parse(ctx, queryStr)
 	if err != nil {
 		pq = &query.ParsedQuery{Raw: queryStr, Rewrites: []string{queryStr}}
@@ -195,7 +224,7 @@ func (h *Handler) HandleSearchStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ranked := h.ranker.Rerank(queryStr, searchResults)
+	ranked := h.ranker.Rerank(ctx, queryStr, searchResults)
 
 	emitSSE(w, flusher, "status", map[string]string{"stage": "generating", "message": "正在生成答案..."})
 
@@ -223,6 +252,19 @@ func emitSSE(w http.ResponseWriter, flusher http.Flusher, event string, data int
 	jsonData, _ := json.Marshal(data)
 	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, string(jsonData))
 	flusher.Flush()
+}
+
+// normalizeQuery normalizes a query string for cache lookup.
+func normalizeQuery(q string) string {
+	return strings.TrimSpace(strings.ToLower(q))
+}
+
+// estimateLLMCost returns a rough USD cost estimate for an answer.
+// This is a placeholder; real cost depends on the model and token counts.
+func estimateLLMCost(answer string) float64 {
+	// Rough estimate: ~1 token per 4 chars, ~$0.5/1M tokens (cheap models).
+	tokens := float64(len(answer)) / 4.0
+	return tokens * 0.5 / 1_000_000
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {

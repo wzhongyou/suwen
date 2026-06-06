@@ -1,13 +1,13 @@
 # suwen configuration
 
 [server]
-addr = ":8080"
+addr = ":9528"
 
 [vortex]
-addr = "http://localhost:8080"
+addr = "http://localhost:9527"
 
 [proximia]
-addr = "http://localhost:8080"
+addr = "http://localhost:9876"
 
 [llm]
 provider = "deepseek"
@@ -22,3 +22,28 @@ rrf_k = 60
 [ranking]
 cross_encoder_enabled = false
 cross_encoder_model = "bge-reranker-v2-m3"
+cross_encoder_addr = "http://localhost:9988"
+
+[query]
+# Phase 2: LLM-powered query understanding.
+enabled = false
+model = "deepseek-v4-flash"
+timeout = "500ms"
+
+[cache]
+# Phase 3: query result cache.
+enabled = false
+max_size = 1000
+ttl = "5m"
+
+[rate_limit]
+# Phase 3: per-IP rate limiting.
+enabled = false
+rate = 30
+interval = "1m"
+burst = 5
+
+[auth]
+# Phase 3: API key authentication.
+enabled = false
+keys = []

@@ -44,10 +44,10 @@ type Generator struct {
 	model   string
 }
 
-// New creates a Generator backed by llmgate.
+// NewGateway creates an llmgate Gateway from the given config.
 // If configPath is non-empty, loads provider config from that file.
 // Otherwise, auto-loads from environment variables (LLMGATE_*).
-func New(cfg *config.Config) *Generator {
+func NewGateway(cfg *config.Config) *sdk.Gateway {
 	var gw *sdk.Gateway
 	if path := cfg.LLM.ConfigPath; path != "" {
 		var err error
@@ -59,8 +59,13 @@ func New(cfg *config.Config) *Generator {
 	} else {
 		gw = sdk.New()
 	}
+	return gw
+}
+
+// New creates a Generator backed by llmgate.
+func New(cfg *config.Config) *Generator {
 	return &Generator{
-		gateway: gw,
+		gateway: NewGateway(cfg),
 		model:   cfg.LLM.Model,
 	}
 }

@@ -1,0 +1,59 @@
+# Suwen — AI-powered search engine
+# Phase 3: production-ready deployment
+
+services:
+  suwen:
+    build: .
+    container_name: suwen
+    ports:
+      - "8080:8080"
+    environment:
+      - DEEPSEEK_KEY=${DEEPSEEK_KEY:-}
+      - GLM_KEY=${GLM_KEY:-}
+      - OPENAI_KEY=${OPENAI_KEY:-}
+    volumes:
+      - ./conf:/app/conf:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---- Required upstream services ----
+  # Uncomment and configure for production use.
+
+  # vortex:
+  #   image: ghcr.io/wzhongyou/vortex:latest
+  #   container_name: vortex
+  #   ports:
+  #     - "9527:9527"
+  #   volumes:
+  #     - vortex_data:/data
+  #   restart: unless-stopped
+
+  # proximia:
+  #   image: ghcr.io/wzhongyou/proximia:latest
+  #   container_name: proximia
+  #   ports:
+  #     - "9876:9876"
+  #   volumes:
+  #     - proximia_data:/data
+  #   restart: unless-stopped
+
+  # reranker:
+  #   image: ghcr.io/wzhongyou/bge-reranker:latest
+  #   container_name: reranker
+  #   ports:
+  #     - "9988:9988"
+  #   restart: unless-stopped
+
+# volumes:
+#   vortex_data:
+#   proximia_data:

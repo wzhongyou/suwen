@@ -50,9 +50,10 @@ supervisor
 # Web frontend
 web/node_modules/
 web/dist/
+web/.next/
 
 # Compiled binary
-suwen
+/suwen
 
 # Data
 data/

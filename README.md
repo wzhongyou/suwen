@@ -17,6 +17,22 @@ Suwen 只做 **Ranker + 展现后端**。数据抓取（[kuafu](https://github.c
 
 详细架构见 [docs/design/architecture.md](docs/design/architecture.md)。
 
+### 健康检查
+
+```bash
+GET /health
+```
+
+```json
+{"status":"ok","metrics":{"total_requests":42,"avg_latency_ms":230.5,"llm_calls":10,"llm_cost_usd":0.0012}}
+```
+
+### Prometheus 指标
+
+```bash
+GET /metrics
+```
+
 ## 快速开始
 
 ### 前置依赖
@@ -46,6 +62,12 @@ make build
 ./suwen --config=conf/suwen.toml \
   --vortex-addr=http://localhost:9527 \
   --proximia-addr=http://localhost:9876
+```
+
+### Docker 部署
+
+```bash
+docker compose up -d
 ```
 
 打开 `http://localhost:9090` 开始搜索。
@@ -129,16 +151,20 @@ GET /api/v1/search/stream?q=并发
 
 ```
 suwen/
-├── cmd/suwen/main.go           # 入口
+├── cmd/suwen/main.go           # 入口，组装中间件链
 ├── internal/                    # 应用内部包
 │   ├── config/                 # 配置定义与加载
 │   ├── query/                  # 查询理解（意图分类、改写）
 │   ├── retrieval/              # 混合召回编排、RRF 融合
 │   ├── ranking/                # 多阶段排序（Cross-Encoder 精排）
 │   ├── generation/             # 答案生成（Prompt 工程、引用追踪）
-│   └── gateway/                # HTTP API、SSE 流式、搜索页面
+│   ├── gateway/                # HTTP API、SSE 流式、搜索页面
+│   ├── cache/                  # 查询缓存（TTL + LRU）
+│   └── middleware/             # 限流、认证、监控、日志
 ├── conf/                       # 配置文件
 ├── docs/design/                # 设计文档
+├── Dockerfile                  # 多阶段构建
+├── docker-compose.yml          # 单命令部署
 └── Makefile
 ```
 
@@ -154,8 +180,8 @@ make clean      # 清理
 ## 路线图
 
 - [x] Phase 1 — 最小可用：检索 + LLM 生成 + 搜索页面
-- [ ] Phase 2 — 搜索体验：查询改写、Cross-Encoder 精排、SSE 流式
-- [ ] Phase 3 — 生产就绪：查询缓存、监控、评测基准
+- [x] Phase 2 — 搜索体验：查询改写、Cross-Encoder 精排、SSE 流式
+- [x] Phase 3 — 生产就绪：查询缓存、限流、认证、监控、Docker 部署
 
 详见 [implementation-plan.md](docs/design/implementation-plan.md)。
 
